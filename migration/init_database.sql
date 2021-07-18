@@ -1,0 +1,3 @@
+CREATE USER pord WITH ENCRYPTED PASSWORD 'root';
+CREATE DATABASE cost_management_api;
+GRANT ALL PRIVILEGES ON DATABASE cost_management_api TO pord;

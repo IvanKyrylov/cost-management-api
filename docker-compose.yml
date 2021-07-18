@@ -1,0 +1,22 @@
+version: '3.8'
+services: 
+    cost-management-api:
+        build: 
+            context: ./
+            dockerfile: Dockerfile
+        command: ./wait-for-postgres db ./cost-management-api
+        depends_on:     
+            - db
+        environment: 
+            - DB_PASSWORD=root
+        ports: 
+            - 8080:8080
+    db:
+        restart: always
+        image: postgres:latest
+        environment:
+             POSTGRES_PASSWORD: root
+        ports: 
+            - 5432:5432
+        volumes:
+            - ./migration/init_database.sql:/docker-entrypoint-initdb.d/1-init.sql
