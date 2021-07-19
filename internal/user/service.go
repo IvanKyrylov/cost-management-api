@@ -12,70 +12,118 @@ import (
 var _ Service = &service{}
 
 type Service interface {
-	GetById(ctx context.Context, uuid string) (User, error)
-	GetByName(ctx context.Context, lastName string) (User, error)
-	GetAll(ctx context.Context, limit, page int64) ([]User, error)
-	GetUsersRating(ctx context.Context, limit, page int64) ([]UserRating, error)
+	GetById(ctx context.Context, id uint64) (UserDTO, error)
+	GetByUsername(ctx context.Context, userName string) (UserDTO, error)
+	GetAll(ctx context.Context, limit, page uint64) ([]UserDTO, error)
 }
 
 type service struct {
-	storage Storage
-	logger  *log.Logger
+	userStorage               UserStorage
+	walletStorage             WalletStorage
+	transactionHistoryStorage TransactionHistoryStorage
+	logger                    *log.Logger
 }
 
-func NewService(storage Storage, logger *log.Logger) (Service, error) {
+func NewService(userStorage UserStorage, walletStorage WalletStorage, transactionHistoryStorage TransactionHistoryStorage, logger *log.Logger) (Service, error) {
 	return &service{
-		storage: storage,
-		logger:  logger,
+		userStorage:               userStorage,
+		walletStorage:             walletStorage,
+		transactionHistoryStorage: transactionHistoryStorage,
+		logger:                    logger,
 	}, nil
 }
 
-func (s service) GetById(ctx context.Context, uuid string) (user User, err error) {
-	user, err = s.storage.FindById(ctx, uuid)
+func (s service) GetById(ctx context.Context, id uint64) (userDto UserDTO, err error) {
+	user, err := s.userStorage.FindById(ctx, id)
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound.Err) {
-			return user, err
+			return userDto, err
 		}
-		return user, fmt.Errorf("failed to find user by uuid. error: %w", err)
+		return userDto, fmt.Errorf("failed to find user by id. error: %w", err)
 	}
-	return user, nil
+
+	wallets, err := s.walletStorage.FindByUserId(ctx, user.Id)
+	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound.Err) {
+			return userDto, err
+		}
+		return userDto, fmt.Errorf("failed to find wallets by user_id. error: %w", err)
+	}
+
+	walletsDto := make([]WalletDTO, 0, len(wallets))
+	for i := 0; i < len(wallets); i++ {
+		walletsDto = append(walletsDto, walletMapping(wallets[i]))
+	}
+	userDto = userMapping(user)
+	userDto.Wallets = walletsDto
+	return userDto, nil
 }
 
-func (s service) GetByName(ctx context.Context, lastName string) (user User, err error) {
-	user, err = s.storage.FindByName(ctx, lastName)
+func (s service) GetByUsername(ctx context.Context, userName string) (userDto UserDTO, err error) {
+	user, err := s.userStorage.FindByUsername(ctx, userName)
 	if err != nil {
-		if errors.Is(err, apperror.ErrNotFound) {
-			return user, err
+		if errors.Is(err, apperror.ErrNotFound.Err) {
+			return userDto, err
 		}
-		return user, fmt.Errorf("failed to get users by uuid. error: %w", err)
+		return userDto, fmt.Errorf("failed to find user by username. error: %w", err)
 	}
-	return user, nil
+
+	wallets, err := s.walletStorage.FindByUserId(ctx, user.Id)
+	if err != nil {
+		if errors.Is(err, apperror.ErrNotFound.Err) {
+			return userDto, err
+		}
+		return userDto, fmt.Errorf("failed to find wallets by user_id. error: %w", err)
+	}
+
+	walletsDto := make([]WalletDTO, 0, len(wallets))
+	for i := 0; i < len(wallets); i++ {
+		walletsDto = append(walletsDto, walletMapping(wallets[i]))
+	}
+	userDto = userMapping(user)
+	userDto.Wallets = walletsDto
+	return userDto, nil
 }
 
-func (s service) GetAll(ctx context.Context, limit, page int64) (users []User, err error) {
-	users, err = s.storage.FindAll(ctx, limit, page)
+func (s service) GetAll(ctx context.Context, limit, page uint64) (usersDto []UserDTO, err error) {
+	users, err := s.userStorage.FindAll(ctx, limit, page)
 	if err != nil {
-		if errors.Is(err, apperror.ErrNotFound) {
-			return users, err
+		if errors.Is(err, apperror.ErrNotFound.Err) {
+			return usersDto, err
 		}
-		return users, fmt.Errorf("failed to get all users. error: %w", err)
+		return usersDto, fmt.Errorf("failed to find user by username. error: %w", err)
 	}
-	if len(users) == 0 {
-		return users, apperror.ErrNotFound
+	for i := 0; i < len(users); i++ {
+		wallets, err := s.walletStorage.FindByUserId(ctx, users[i].Id)
+		if err != nil {
+			if errors.Is(err, apperror.ErrNotFound.Err) {
+				return usersDto, err
+			}
+			return usersDto, fmt.Errorf("failed to find wallets by user_id. error: %w", err)
+		}
+		walletsDto := make([]WalletDTO, 0, len(wallets))
+		for i := 0; i < len(wallets); i++ {
+			walletsDto = append(walletsDto, walletMapping(wallets[i]))
+		}
+		userDto := userMapping(users[i])
+		userDto.Wallets = walletsDto
+		usersDto = append(usersDto, userDto)
 	}
-	return users, nil
+
+	return usersDto, nil
 }
 
-func (s service) GetUsersRating(ctx context.Context, limit, page int64) (usersRatings []UserRating, err error) {
-	usersRatings, err = s.storage.AggregateRatingUsers(ctx, limit, page)
-	if err != nil {
-		if errors.Is(err, apperror.ErrNotFound) {
-			return usersRatings, err
-		}
-		return usersRatings, fmt.Errorf("failed to get statistics games. error: %w", err)
-	}
-	if len(usersRatings) == 0 {
-		return usersRatings, apperror.ErrNotFound
-	}
-	return usersRatings, nil
+func walletMapping(wallet Wallet) (walletDto WalletDTO) {
+	walletDto.Id = wallet.Id
+	walletDto.Amount = wallet.Amount
+	walletDto.Currency = wallet.Currency
+	return
+}
+
+func userMapping(user User) (userDto UserDTO) {
+	userDto.Id = user.Id
+	userDto.Name = user.Name
+	userDto.Surname = user.Surname
+	userDto.Username = user.Username
+	return
 }

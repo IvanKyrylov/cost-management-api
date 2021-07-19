@@ -18,5 +18,6 @@ CREATE TABLE transaction_history (
     currency varchar(255) not null,
     description varchar(255),
     done boolean not null default false,
+    datetime TIMESTAMP not null,
     wallet_id int references wallets(id) on delete cascade not null
 );
