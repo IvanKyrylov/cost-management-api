@@ -31,7 +31,7 @@ func (s *db) FindById(ctx context.Context, id uint64) (transactionHistory user.T
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	err = s.storage.QueryRowContext(ctx, "SELECT id, amount, currency, description, done, datetime, wallet_id FROM shortener where id=$1 limit 1;", id).
+	err = s.storage.QueryRowContext(ctx, "SELECT id, amount, currency, description, done, datetime, wallet_id FROM transaction_history where id=$1 limit 1;", id).
 		Scan(&transactionHistory.Id, &transactionHistory.Amount, &transactionHistory.Currency, &transactionHistory.Done, transactionHistory.Datetime, transactionHistory.WalletId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -46,7 +46,7 @@ func (s *db) FindByWalletId(ctx context.Context, walletId uint64) (transactionHi
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	query, err := s.storage.QueryContext(ctx, "SELECT id, amount, currency, description, done, datetime, wallet_id FROM shortener where wallet_id=$1;", walletId)
+	query, err := s.storage.QueryContext(ctx, "SELECT id, amount, currency, description, done, datetime, wallet_id FROM transaction_history where wallet_id=$1;", walletId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return transactionHistorys, apperror.ErrNotFound
@@ -74,7 +74,7 @@ func (s *db) Create(ctx context.Context, amount *big.Float, currency string, des
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	err = s.storage.QueryRowContext(ctx, "INSERT INTO wallets(amount,currency,description,done,datetime,wallet_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING id;", amount, currency, description, done, datetime, walletId).Scan(&id)
+	err = s.storage.QueryRowContext(ctx, "INSERT INTO transaction_history(amount,currency,description,done,datetime,wallet_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING id;", amount, currency, description, done, datetime, walletId).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, apperror.ErrNotFound

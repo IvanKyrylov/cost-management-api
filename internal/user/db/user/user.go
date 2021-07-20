@@ -60,7 +60,7 @@ func (s *db) FindAll(ctx context.Context, limit, page uint64) (users []user.User
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	query, err := s.storage.QueryContext(ctx, "SELECT * FROM users limit $1 offset $2;", limit, page*limit)
+	query, err := s.storage.QueryContext(ctx, "SELECT id, name, surname, username FROM users limit $1 offset $2;", limit, page*limit)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return users, apperror.ErrNotFound

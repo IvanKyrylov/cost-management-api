@@ -46,7 +46,7 @@ func (s *db) FindByUserId(ctx context.Context, userId uint64) (wallets []user.Wa
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	query, err := s.storage.QueryContext(ctx, "SELECT id, amount, currency, user_id FROM shortener where user_id=$1;", userId)
+	query, err := s.storage.QueryContext(ctx, "SELECT id, amount, currency, user_id FROM wallets where user_id=$1;", userId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return wallets, apperror.ErrNotFound
@@ -74,7 +74,7 @@ func (s *db) Create(ctx context.Context, amount *big.Float, currency string, use
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	err = s.storage.QueryRowContext(ctx, "INSERT INTO wallets(ammount,currency,user_id) VALUES($1,$2,$3) RETURNING id;", amount, currency, userId).Scan(&id)
+	err = s.storage.QueryRowContext(ctx, "INSERT INTO wallets(amount,currency,user_id) VALUES($1,$2,$3) RETURNING id;", amount, currency, userId).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, apperror.ErrNotFound
@@ -88,7 +88,7 @@ func (s *db) Update(ctx context.Context, walletId uint64, amount *big.Float) (id
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	err = s.storage.QueryRowContext(ctx, "UPDaTE wallets SET amount=$1 WHERE id=$2 RETURNING id;", amount, walletId).Scan(&id)
+	err = s.storage.QueryRowContext(ctx, "UPDATE wallets SET amount=$1 WHERE id=$2 RETURNING id;", amount, walletId).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, apperror.ErrNotFound
